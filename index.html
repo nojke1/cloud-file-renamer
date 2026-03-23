@@ -1,30 +1,900 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="lt">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>pervadink — Failų pervadinimas</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
-    <title>Pervadink.lt</title>
+:root {
+  --bg:       hsl(220,20%,7%);
+  --card:     hsl(220,18%,10%);
+  --card2:    hsl(220,18%,12%);
+  --border:   hsl(220,15%,18%);
+  --primary:  hsl(175,80%,50%);
+  --primary-fg: hsl(220,20%,7%);
+  --secondary:  hsl(220,15%,15%);
+  --fg:       hsl(210,20%,90%);
+  --muted:    hsl(215,15%,50%);
+  --danger:   hsl(0,70%,50%);
+  --warn:     hsl(45,90%,55%);
+  --radius:   0.75rem;
+  --glow:     0 0 20px hsl(175 80% 50% / 0.3);
+  --glow-lg:  0 0 40px hsl(175 80% 50% / 0.2);
+  --font:     'Space Grotesk', sans-serif;
+  --mono:     'JetBrains Mono', monospace;
+}
 
-    <meta name="description" content="Greitas failų pervadinimo įrankis internete" />
-    <meta name="author" content="Pervadink.lt" />
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--fg);
+  min-height: 100vh;
+}
 
-    <!-- Open Graph (kai dalinasi linku) -->
-    <meta property="og:type" content="website" />
-    <meta property="og:title" content="Pervadink.lt" />
-    <meta property="og:description" content="Greitas failų pervadinimo įrankis internete" />
-    <meta property="og:image" content="/preview.png" />
+/* ── LAYOUT ── */
+.wrap { max-width: 680px; margin: 0 auto; padding: 0 24px 80px; }
 
-    <!-- Twitter preview -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Pervadink.lt" />
-    <meta name="twitter:description" content="Greitas failų pervadinimo įrankis internete" />
-    <meta name="twitter:image" content="/preview.png" />
+/* ── HEADER / NAV ── */
+header {
+  position: sticky; top: 0; z-index: 50;
+  background: hsl(220 20% 7% / 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.header-inner {
+  max-width: 680px; margin: 0 auto;
+  padding: 14px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.logo {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 1.2rem; font-weight: 700; color: var(--fg); text-decoration: none;
+}
+.logo span { color: var(--primary); }
+.logo svg { width: 18px; height: 18px; color: var(--primary); }
 
-  </head>
+nav { display: flex; gap: 4px; }
+.tab-btn {
+  padding: 6px 14px; border-radius: 8px;
+  font-size: 0.82rem; font-weight: 500;
+  background: none; border: none; color: var(--muted);
+  cursor: pointer; transition: all .15s;
+}
+.tab-btn:hover { color: var(--fg); background: var(--secondary); }
+.tab-btn.active { color: var(--primary); background: hsl(175 80% 50% / 0.12); }
 
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+/* ── PAGES ── */
+.page { display: none; padding-top: 40px; }
+.page.active { display: block; animation: fadeUp .3s ease; }
+@keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+
+/* ── HERO ── */
+.hero { text-align: center; margin-bottom: 48px; }
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px; border-radius: 100px;
+  background: hsl(175 80% 50% / 0.1); border: 1px solid hsl(175 80% 50% / 0.2);
+  font-size: 0.75rem; font-weight: 500; color: var(--primary); margin-bottom: 16px;
+}
+.hero h1 { font-size: 2.2rem; font-weight: 700; line-height: 1.2; margin-bottom: 10px; }
+.hero h1 span { color: var(--primary); }
+.hero p { color: var(--muted); font-size: 0.9rem; }
+
+/* ── STEP ── */
+.step-label {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 16px;
+}
+.step-num {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: hsl(175 80% 50% / 0.1); border: 1px solid hsl(175 80% 50% / 0.25);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem; font-weight: 700; color: var(--primary);
+  flex-shrink: 0;
+}
+.step-label span { font-size: 0.875rem; font-weight: 600; }
+section.block { margin-bottom: 40px; }
+
+/* ── LABEL ── */
+label.sec {
+  display: block; font-size: 0.7rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--muted); margin-bottom: 10px;
+}
+
+/* ── DROP ZONE ── */
+#drop-zone {
+  border: 2px dashed var(--border); border-radius: var(--radius);
+  padding: 48px 24px; text-align: center; cursor: pointer;
+  transition: border-color .2s, background .2s;
+}
+#drop-zone:hover, #drop-zone.drag { border-color: var(--primary); background: hsl(175 80% 50% / 0.04); }
+#drop-zone svg { width: 40px; height: 40px; color: var(--primary); opacity: .6; margin: 0 auto 12px; display: block; }
+#drop-zone p { color: var(--muted); font-size: 0.875rem; }
+#drop-zone p a { color: var(--primary); text-decoration: underline; }
+
+/* ── FILE LIST ── */
+.file-list { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.file-item {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 14px;
+  animation: fadeUp .2s ease;
+}
+.file-item svg { width: 16px; height: 16px; color: var(--primary); flex-shrink: 0; }
+.file-name { font-family: var(--mono); font-size: 0.78rem; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-size { font-size: 0.72rem; color: var(--muted); flex-shrink: 0; }
+.file-remove { background: none; border: none; cursor: pointer; color: var(--muted); padding: 2px; border-radius: 4px; line-height: 0; }
+.file-remove:hover { color: var(--danger); }
+.file-remove svg { width: 14px; height: 14px; }
+
+/* ── TEMPLATE ZONE ── */
+#template-zone {
+  min-height: 52px; background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 12px; display: flex; flex-wrap: wrap; gap: 8px;
+  align-items: center;
+}
+#template-zone.empty-msg::after { content: 'Pasirinkite elementus žemiau…'; color: var(--muted); font-size: 0.875rem; }
+
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 8px;
+  background: hsl(175 80% 50% / 0.15); border: 1px solid hsl(175 80% 50% / 0.25);
+  font-family: var(--mono); font-size: 0.78rem; font-weight: 500; color: var(--primary);
+  cursor: grab; user-select: none; transition: background .15s, transform .1s;
+}
+.chip:active { cursor: grabbing; transform: scale(.97); }
+.chip.dragging { opacity: .4; }
+.chip.drag-over { box-shadow: -3px 0 0 var(--primary); }
+.chip .sep { color: var(--muted); font-weight: 400; }
+.chip .remove { background: none; border: none; cursor: pointer; color: hsl(175 80% 50% / 0.5); font-size: 1rem; line-height: 1; padding: 0 0 0 2px; }
+.chip .remove:hover { color: var(--danger); }
+
+/* ── AVAILABLE TOKENS ── */
+.tokens-pool { display: flex; flex-wrap: wrap; gap: 8px; }
+.token-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 8px;
+  background: var(--secondary); border: 1px solid var(--border);
+  font-size: 0.82rem; color: var(--fg); cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.token-btn:hover { border-color: hsl(175 80% 50% / 0.4); background: hsl(175 80% 50% / 0.06); }
+.token-btn svg { width: 12px; height: 12px; }
+
+/* ── SEPARATORS ── */
+.sep-row { display: flex; gap: 8px; }
+.sep-btn {
+  padding: 8px 16px; border-radius: 8px;
+  background: none; border: 1px solid var(--border);
+  font-family: var(--mono); font-size: 0.85rem; color: var(--muted); cursor: pointer;
+  transition: all .15s;
+}
+.sep-btn:hover { border-color: hsl(175 80% 50% / 0.3); }
+.sep-btn.active { border-color: var(--primary); background: hsl(175 80% 50% / 0.1); color: var(--primary); box-shadow: var(--glow); }
+
+/* ── FORM FIELDS ── */
+.fields-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media(max-width:480px){ .fields-grid { grid-template-columns: 1fr; } }
+.field-wrap { display: flex; flex-direction: column; gap: 4px; }
+.field-wrap .field-label { font-size: 0.7rem; color: var(--muted); font-weight: 500; }
+input[type=text], input[type=date], select.date-fmt {
+  width: 100%;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 14px;
+  font-family: var(--mono); font-size: 0.82rem; color: var(--fg);
+  outline: none; transition: border-color .15s, box-shadow .15s;
+}
+input[type=text]::placeholder { color: var(--muted); }
+input[type=text]:focus, input[type=date]:focus, select.date-fmt:focus {
+  border-color: var(--primary); box-shadow: var(--glow);
+}
+input[type=date]::-webkit-calendar-picker-indicator { filter: invert(0.6); }
+select.date-fmt { cursor: pointer; }
+select.date-fmt option { background: var(--card); }
+
+/* date format row */
+.date-row { display: flex; gap: 8px; }
+.date-row input { flex: 1; }
+.date-row select { width: 160px; flex-shrink: 0; }
+
+/* ── CUSTOM TOKEN BUILDER ── */
+.custom-token-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.custom-token-row input { flex: 1; }
+.btn-sm {
+  padding: 8px 14px; border-radius: 8px;
+  background: hsl(175 80% 50% / 0.12); border: 1px solid hsl(175 80% 50% / 0.25);
+  color: var(--primary); font-size: 0.8rem; font-weight: 600; cursor: pointer;
+  transition: background .15s, box-shadow .15s; white-space: nowrap;
+}
+.btn-sm:hover { background: hsl(175 80% 50% / 0.2); box-shadow: var(--glow); }
+
+/* ── PREVIEW ── */
+.preview-table {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden;
+}
+.preview-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; font-family: var(--mono); font-size: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+.preview-row:first-child { border-top: none; }
+.preview-old { color: var(--muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preview-arrow { color: var(--primary); flex-shrink: 0; }
+.preview-arrow svg { width: 12px; height: 12px; }
+.preview-new { color: var(--fg); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preview-warn { flex-shrink: 0; }
+.preview-warn svg { width: 13px; height: 13px; color: var(--warn); }
+
+/* ── DOWNLOAD BUTTON ── */
+#btn-download {
+  margin-top: 20px; width: 100%;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 14px 24px; border-radius: var(--radius);
+  background: var(--primary); border: none; color: var(--primary-fg);
+  font-family: var(--font); font-size: 0.9rem; font-weight: 700;
+  cursor: pointer; transition: box-shadow .2s, transform .1s, opacity .2s;
+}
+#btn-download:hover:not(:disabled) { box-shadow: var(--glow-lg); transform: scale(1.01); }
+#btn-download:active:not(:disabled) { transform: scale(0.99); }
+#btn-download:disabled { opacity: .4; cursor: not-allowed; }
+#btn-download svg { width: 16px; height: 16px; }
+
+/* ── INFO PAGE ── */
+.info-hero {
+  text-align: center; padding: 48px 0 40px;
+  border-bottom: 1px solid var(--border); margin-bottom: 40px;
+}
+.info-hero .icon-wrap {
+  width: 64px; height: 64px; border-radius: 18px;
+  background: hsl(175 80% 50% / 0.1); border: 1px solid hsl(175 80% 50% / 0.2);
+  display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;
+}
+.info-hero .icon-wrap svg { width: 32px; height: 32px; color: var(--primary); }
+.info-hero h2 { font-size: 1.7rem; font-weight: 700; margin-bottom: 8px; }
+.info-hero p { color: var(--muted); font-size: 0.9rem; max-width: 400px; margin: 0 auto; }
+
+.info-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 32px; }
+@media(max-width:520px){ .info-cards { grid-template-columns: 1fr; } }
+.info-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 20px;
+}
+.info-card .ic { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; }
+.ic-green { background: hsl(145 60% 45% / 0.12); }
+.ic-green svg { color: hsl(145,60%,55%); }
+.ic-blue { background: hsl(210 80% 60% / 0.12); }
+.ic-blue svg { color: hsl(210,80%,65%); }
+.ic-purple { background: hsl(265 70% 65% / 0.12); }
+.ic-purple svg { color: hsl(265,70%,70%); }
+.ic-orange { background: hsl(30 90% 55% / 0.12); }
+.ic-orange svg { color: hsl(30,90%,60%); }
+.ic-teal { background: hsl(175 80% 50% / 0.12); }
+.ic-teal svg { color: var(--primary); }
+.info-card h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 6px; }
+.info-card p { font-size: 0.82rem; color: var(--muted); line-height: 1.55; }
+
+.info-section { margin-bottom: 32px; }
+.info-section h3 { font-size: 1rem; font-weight: 600; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.info-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.info-list li { display: flex; align-items: flex-start; gap: 10px; font-size: 0.875rem; color: var(--muted); line-height: 1.5; }
+.info-list li::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--primary); flex-shrink: 0; margin-top: 7px; }
+
+.info-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 16px; border-radius: 10px;
+  background: hsl(145 60% 45% / 0.08); border: 1px solid hsl(145 60% 45% / 0.2);
+  font-size: 0.82rem; color: hsl(145,60%,60%); margin-bottom: 12px; width: 100%;
+}
+.info-badge svg { width: 15px; height: 15px; flex-shrink: 0; }
+
+/* ── GLOW BG ── */
+.glow-bg {
+  position: fixed; top: 0; left: 50%; transform: translateX(-50%);
+  width: 600px; height: 500px;
+  background: radial-gradient(ellipse at center, hsl(175 80% 50% / 0.06) 0%, transparent 70%);
+  pointer-events: none; z-index: 0;
+}
+.wrap { position: relative; z-index: 1; }
+
+/* ── UTILS ── */
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="glow-bg"></div>
+
+<!-- HEADER -->
+<header>
+  <div class="header-inner">
+    <a class="logo" href="#" onclick="switchTab('rename');return false;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+      pervadink<span>.lt</span>
+    </a>
+    <nav>
+      <button class="tab-btn active" id="nav-rename" onclick="switchTab('rename')">Pervadinti</button>
+      <button class="tab-btn" id="nav-info" onclick="switchTab('info')">Apie</button>
+    </nav>
+  </div>
+</header>
+
+<!-- ════════════════════ RENAME PAGE ════════════════════ -->
+<div class="wrap">
+<div class="page active" id="page-rename">
+
+  <div class="hero">
+    <div class="hero-badge">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      Greitas ir saugus failų pervadinimas
+    </div>
+    <h1>Pervadink<span>.</span>lt</h1>
+    <p>Įkelk failus · Sudėk šabloną · Parsisiųsk</p>
+  </div>
+
+  <!-- STEP 1: UPLOAD -->
+  <section class="block">
+    <div class="step-label">
+      <div class="step-num">1</div>
+      <span>Įkelkite failus</span>
+    </div>
+
+    <div id="drop-zone" class="empty-msg" onclick="document.getElementById('file-input').click()">
+      <input type="file" id="file-input" multiple hidden />
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <p>Tempkite failus čia arba <a>pasirinkite</a></p>
+    </div>
+    <div class="file-list" id="file-list"></div>
+  </section>
+
+  <!-- STEP 2: TEMPLATE -->
+  <section class="block">
+    <div class="step-label">
+      <div class="step-num">2</div>
+      <span>Sukurkite šabloną</span>
+    </div>
+
+    <!-- Active template (drag reorder) -->
+    <label class="sec">Šablonas <span style="font-weight:400;text-transform:none;letter-spacing:0">(tempkite norėdami keisti eiliškumą)</span></label>
+    <div id="template-zone" class="empty-msg"></div>
+
+    <!-- Available tokens -->
+    <label class="sec" style="margin-top:18px">Galimi elementai</label>
+    <div class="tokens-pool" id="tokens-pool"></div>
+
+    <!-- Custom token builder -->
+    <label class="sec" style="margin-top:18px">Pridėti savą elementą</label>
+    <div class="custom-token-row">
+      <input type="text" id="custom-label" placeholder="Pvz.: Klasė, Skyrius, Tema…" maxlength="30" />
+      <button class="btn-sm" onclick="addCustomToken()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:inline;vertical-align:middle;margin-right:4px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Pridėti
+      </button>
+    </div>
+
+    <!-- Separator -->
+    <label class="sec" style="margin-top:18px">Skirtukas</label>
+    <div class="sep-row" id="sep-row"></div>
+
+    <!-- Values form -->
+    <div id="fields-section" class="hidden" style="margin-top:24px">
+      <label class="sec">Reikšmės</label>
+      <div class="fields-grid" id="fields-grid"></div>
+    </div>
+  </section>
+
+  <!-- STEP 3: PREVIEW + DOWNLOAD -->
+  <section class="block" id="preview-section" style="display:none">
+    <div class="step-label">
+      <div class="step-num">3</div>
+      <span>Peržiūra ir atsisiuntimas</span>
+    </div>
+
+    <label class="sec">Peržiūra</label>
+    <div class="preview-table" id="preview-table"></div>
+
+    <button id="btn-download" onclick="doDownload()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Atsisiųsti ZIP
+    </button>
+  </section>
+
+</div><!-- /page-rename -->
+
+<!-- ════════════════════ INFO PAGE ════════════════════ -->
+<div class="page" id="page-info">
+
+  <div class="info-hero">
+    <div class="icon-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+    </div>
+    <h2>Apie pervadink.lt</h2>
+    <p>Paprastas ir saugus įrankis failų pervadinimui tiesiai jūsų naršyklėje.</p>
+  </div>
+
+  <!-- Safety badges -->
+  <div style="margin-bottom:28px">
+    <div class="info-badge">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Jūsų failai <strong style="color:hsl(145,60%,60%);margin:0 2px">niekada neišsaugomi</strong> ir neperduodami jokiam serveriui
+    </div>
+    <div class="info-badge">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Visas apdorojimas vyksta <strong style="color:hsl(145,60%,60%);margin:0 2px">100% jūsų naršyklėje</strong> — be serverio, be debesies
+    </div>
+  </div>
+
+  <!-- Feature cards -->
+  <div class="info-cards">
+    <div class="info-card">
+      <div class="ic ic-green"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+      <h3>Visiškai saugus</h3>
+      <p>Failai apdorojami tik jūsų naršyklėje. Niekas negali jų matyti ar pasiekti.</p>
+    </div>
+    <div class="info-card">
+      <div class="ic ic-blue"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
+      <h3>Veikia naršyklėje</h3>
+      <p>Nereikia diegti jokios programos. Veikia kompiuteryje, planšetėje ar telefone.</p>
+    </div>
+    <div class="info-card">
+      <div class="ic ic-teal"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+      <h3>Lankstūs šablonai</h3>
+      <p>Kurkite savo šablonus iš pasirinktų elementų ir rūšiuokite juos kaip norite.</p>
+    </div>
+    <div class="info-card">
+      <div class="ic ic-purple"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
+      <h3>ZIP atsisiuntimas</h3>
+      <p>Pervadinti failai suglaudinami į ZIP archyvą ir atsisiunčiami vienu paspaudimu.</p>
+    </div>
+  </div>
+
+  <!-- How it works -->
+  <div class="info-section">
+    <h3>Kaip tai veikia?</h3>
+    <ul class="info-list">
+      <li>Įkeliate failus — jie lieka tik jūsų naršyklės atmintyje, neišsiunčiami jokiam serveriui.</li>
+      <li>Pasirenkate šablono elementus (Dalykas, Pavardė, Data ir kt.) ir surūšiuojate juos vilkdami.</li>
+      <li>Užpildote reikšmes — failų peržiūroje iš karto matote naujus pavadinimus.</li>
+      <li>Paspaudžiate „Atsisiųsti ZIP" — failai pervadinti ir supakuoti tiesiai jūsų naršyklėje.</li>
+    </ul>
+  </div>
+
+  <!-- Privacy -->
+  <div class="info-section">
+    <h3>Privatumas ir duomenys</h3>
+    <ul class="info-list">
+      <li>Mes nesaugome jokių jūsų failų ar jų pavadinimų — nei serveryje, nei duomenų bazėje.</li>
+      <li>Serveris tik pateikia šį puslapį — visas darbas atliekamas jūsų įrenginyje.</li>
+      <li>Galite naudoti šį įrankį su konfidencialiais ar asmeniniais dokumentais visiškai saugiai.</li>
+      <li>Naudojame tik Google Fonts ir JSZip biblioteką — jokių stebėjimo skriptų.</li>
+    </ul>
+  </div>
+
+  <!-- About project -->
+  <div class="info-section">
+    <h3>Apie projektą</h3>
+    <ul class="info-list">
+      <li>Šis projektas sukurtas kaip patogus įrankis moksleiviams, mokytojams ir visiems, kuriems reikia greitai pervadinti daugybę failų pagal vienodą struktūrą.</li>
+      <li>Projektas yra mūsų kūrinys ir yra nuolat tobulinamas atsižvelgiant į vartotojų poreikius.</li>
+      <li>Turite pasiūlymų ar pastabų? Rašykite mums!</li>
+    </ul>
+  </div>
+
+</div><!-- /page-info -->
+</div><!-- /wrap -->
+
+<script>
+// ══════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════
+let files = [];
+let activeTokens = []; // [{id, label, isCustom}]
+let separator = '_';
+let formValues = {};
+let dateFmt = 'yyyy-MM-dd';
+
+// Built-in tokens
+const BUILTIN = [
+  { id:'dalykas', label:'Dalykas' },
+  { id:'pavarde', label:'Pavardė' },
+  { id:'vardas',  label:'Vardas'  },
+  { id:'data',    label:'Data'    },
+  { id:'grupe',   label:'Grupė'   },
+  { id:'nr',      label:'Nr.'     },
+  { id:'tipas',   label:'Tipas'   },
+];
+
+// All available (built-in + user-added)
+let allTokens = BUILTIN.map(t => ({...t, isCustom:false}));
+
+const DATE_FORMATS = [
+  { value:'yyyy-MM-dd', label:'2025-12-31' },
+  { value:'dd-MM-yyyy', label:'31-12-2025' },
+  { value:'dd.MM.yyyy', label:'31.12.2025' },
+  { value:'MM-dd-yyyy', label:'12-31-2025' },
+  { value:'yyyyMMdd',   label:'20251231'   },
+];
+
+// ══════════════════════════════════════════
+//  TAB SWITCHING
+// ══════════════════════════════════════════
+function switchTab(tab) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + tab).classList.add('active');
+  document.getElementById('nav-' + tab).classList.add('active');
+}
+
+// ══════════════════════════════════════════
+//  FILE HANDLING
+// ══════════════════════════════════════════
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag');
+  addFiles(Array.from(e.dataTransfer.files));
+});
+fileInput.addEventListener('change', () => { addFiles(Array.from(fileInput.files)); fileInput.value=''; });
+
+function addFiles(newFiles) {
+  files = [...files, ...newFiles];
+  renderFileList();
+  renderPreview();
+}
+
+function removeFile(i) {
+  files.splice(i, 1);
+  renderFileList();
+  renderPreview();
+}
+
+function renderFileList() {
+  const list = document.getElementById('file-list');
+  list.innerHTML = '';
+  files.forEach((f, i) => {
+    const div = document.createElement('div');
+    div.className = 'file-item';
+    div.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      <span class="file-name">${escHtml(f.name)}</span>
+      <span class="file-size">${(f.size/1024).toFixed(0)} KB</span>
+      <button class="file-remove" onclick="removeFile(${i})" title="Pašalinti">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>`;
+    list.appendChild(div);
+  });
+}
+
+// ══════════════════════════════════════════
+//  SEPARATOR
+// ══════════════════════════════════════════
+const SEPS = [
+  { value:'_', label:'_' },
+  { value:'-', label:'-' },
+  { value:'.', label:'.' },
+  { value:' ', label:'(tarpas)' },
+];
+
+function renderSeparators() {
+  const row = document.getElementById('sep-row');
+  row.innerHTML = '';
+  SEPS.forEach(s => {
+    const btn = document.createElement('button');
+    btn.className = 'sep-btn' + (separator === s.value ? ' active' : '');
+    btn.textContent = s.label;
+    btn.onclick = () => { separator = s.value; renderSeparators(); renderTemplateZone(); renderPreview(); };
+    row.appendChild(btn);
+  });
+}
+
+// ══════════════════════════════════════════
+//  TEMPLATE ZONE (active tokens, drag reorder)
+// ══════════════════════════════════════════
+let dragSrc = null;
+
+function renderTemplateZone() {
+  const zone = document.getElementById('template-zone');
+  zone.innerHTML = '';
+
+  if (activeTokens.length === 0) {
+    zone.classList.add('empty-msg');
+    return;
+  }
+  zone.classList.remove('empty-msg');
+
+  activeTokens.forEach((token, i) => {
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.draggable = true;
+    chip.dataset.idx = i;
+
+    const sepSpan = i < activeTokens.length - 1 ? `<span class="sep">${escHtml(separator)}</span>` : '';
+    chip.innerHTML = `${escHtml(token.label)}${sepSpan}<button class="remove" onclick="removeToken('${token.id}')" title="Pašalinti">×</button>`;
+
+    // Drag reorder
+    chip.addEventListener('dragstart', e => { dragSrc = i; chip.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
+    chip.addEventListener('dragend', () => { chip.classList.remove('dragging'); document.querySelectorAll('.chip').forEach(c=>c.classList.remove('drag-over')); });
+    chip.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect='move'; chip.classList.add('drag-over'); });
+    chip.addEventListener('dragleave', () => chip.classList.remove('drag-over'));
+    chip.addEventListener('drop', e => {
+      e.preventDefault();
+      chip.classList.remove('drag-over');
+      if (dragSrc === null || dragSrc === i) return;
+      const moved = activeTokens.splice(dragSrc, 1)[0];
+      activeTokens.splice(i, 0, moved);
+      dragSrc = null;
+      renderTemplateZone();
+      renderFields();
+      renderPreview();
+    });
+
+    zone.appendChild(chip);
+  });
+}
+
+function removeToken(id) {
+  activeTokens = activeTokens.filter(t => t.id !== id);
+  renderTemplateZone();
+  renderTokensPool();
+  renderFields();
+  renderPreview();
+}
+
+// ══════════════════════════════════════════
+//  TOKENS POOL (available)
+// ══════════════════════════════════════════
+function renderTokensPool() {
+  const pool = document.getElementById('tokens-pool');
+  pool.innerHTML = '';
+  const activeIds = new Set(activeTokens.map(t => t.id));
+  const available = allTokens.filter(t => !activeIds.has(t.id));
+
+  if (available.length === 0) {
+    pool.innerHTML = '<span style="font-size:.8rem;color:var(--muted)">Visi elementai jau panaudoti</span>';
+    return;
+  }
+
+  available.forEach(token => {
+    const btn = document.createElement('button');
+    btn.className = 'token-btn';
+    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>${escHtml(token.label)}`;
+    if (token.isCustom) {
+      btn.innerHTML += ` <span style="font-size:.65rem;color:var(--muted);margin-left:2px">[savs.]</span>`;
+      // small delete button for custom tokens
+      const del = document.createElement('span');
+      del.style.cssText = 'margin-left:6px;cursor:pointer;color:var(--muted);font-size:.9rem;';
+      del.title = 'Ištrinti šį elementą';
+      del.textContent = '✕';
+      del.onclick = e => { e.stopPropagation(); deleteCustomToken(token.id); };
+      btn.appendChild(del);
+    }
+    btn.onclick = () => { addTokenToActive(token.id); };
+    pool.appendChild(btn);
+  });
+}
+
+function addTokenToActive(id) {
+  const token = allTokens.find(t => t.id === id);
+  if (!token) return;
+  activeTokens.push({...token});
+  renderTemplateZone();
+  renderTokensPool();
+  renderFields();
+  renderPreview();
+}
+
+// ══════════════════════════════════════════
+//  CUSTOM TOKENS
+// ══════════════════════════════════════════
+function addCustomToken() {
+  const input = document.getElementById('custom-label');
+  const label = input.value.trim();
+  if (!label) { input.focus(); return; }
+  const id = 'custom_' + label.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/gi,'') + '_' + Date.now();
+  allTokens.push({ id, label, isCustom: true });
+  input.value = '';
+  renderTokensPool();
+}
+
+function deleteCustomToken(id) {
+  allTokens = allTokens.filter(t => t.id !== id);
+  activeTokens = activeTokens.filter(t => t.id !== id);
+  delete formValues[id];
+  renderTemplateZone();
+  renderTokensPool();
+  renderFields();
+  renderPreview();
+}
+
+// Enter key for custom token
+document.getElementById('custom-label').addEventListener('keydown', e => { if(e.key==='Enter') addCustomToken(); });
+
+// ══════════════════════════════════════════
+//  FIELDS (value inputs)
+// ══════════════════════════════════════════
+function renderFields() {
+  const sec = document.getElementById('fields-section');
+  const grid = document.getElementById('fields-grid');
+  grid.innerHTML = '';
+
+  if (activeTokens.length === 0) { sec.classList.add('hidden'); return; }
+  sec.classList.remove('hidden');
+
+  activeTokens.forEach(token => {
+    const wrap = document.createElement('div');
+    wrap.className = 'field-wrap';
+    wrap.innerHTML = `<span class="field-label">${escHtml(token.label)}</span>`;
+
+    if (token.id === 'data') {
+      // Date + format selector
+      const row = document.createElement('div');
+      row.className = 'date-row';
+
+      const inp = document.createElement('input');
+      inp.type = 'date';
+      inp.value = formValues['data'] || '';
+      inp.oninput = () => { formValues['data'] = inp.value; renderPreview(); };
+
+      const sel = document.createElement('select');
+      sel.className = 'date-fmt';
+      DATE_FORMATS.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.value; opt.textContent = f.label;
+        if (f.value === dateFmt) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      sel.onchange = () => { dateFmt = sel.value; renderPreview(); };
+
+      row.appendChild(inp);
+      row.appendChild(sel);
+      wrap.appendChild(row);
+    } else {
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.placeholder = token.label;
+      inp.value = formValues[token.id] || '';
+      inp.oninput = () => { formValues[token.id] = inp.value; renderPreview(); };
+      wrap.appendChild(inp);
+    }
+
+    grid.appendChild(wrap);
+  });
+}
+
+// ══════════════════════════════════════════
+//  PREVIEW
+// ══════════════════════════════════════════
+function formatDate(raw, fmt) {
+  if (!raw) return '';
+  const [y, m, d] = raw.split('-');
+  return fmt
+    .replace('yyyy', y).replace('yy', y.slice(-2))
+    .replace('MM', m).replace('dd', d);
+}
+
+function buildNewNames() {
+  if (files.length === 0 || activeTokens.length === 0) return [];
+
+  const base = activeTokens
+    .map(t => {
+      if (t.id === 'data') return formatDate(formValues['data'] || '', dateFmt);
+      return (formValues[t.id] || '').trim();
+    })
+    .filter(Boolean)
+    .join(separator);
+
+  if (!base) return files.map(() => '');
+
+  const names = [];
+  const counts = {};
+  const dupes = new Set();
+
+  files.forEach((f, i) => {
+    const ext = f.name.includes('.') ? '.' + f.name.split('.').pop() : '';
+    let name = base + ext;
+    if (counts[name] !== undefined) {
+      counts[name]++;
+      const fi = names.indexOf(base + '_1' + ext);
+      if (fi === -1) {
+        const fi2 = names.indexOf(base + ext);
+        if (fi2 !== -1) { names[fi2] = base + '_1' + ext; dupes.add(fi2); }
+      }
+      name = base + '_' + counts[name] + ext;
+      dupes.add(i);
+    } else {
+      counts[name] = 1;
+    }
+    names.push(name);
+  });
+
+  return { names, dupes };
+}
+
+function renderPreview() {
+  const sec = document.getElementById('preview-section');
+  const table = document.getElementById('preview-table');
+  const btn = document.getElementById('btn-download');
+
+  if (files.length === 0 || activeTokens.length === 0) {
+    sec.style.display = 'none'; return;
+  }
+
+  const result = buildNewNames();
+  const { names, dupes } = result;
+  const hasNames = names.some(n => n);
+
+  sec.style.display = 'block';
+  table.innerHTML = '';
+
+  files.forEach((f, i) => {
+    const row = document.createElement('div');
+    row.className = 'preview-row';
+    row.innerHTML = `
+      <span class="preview-old">${escHtml(f.name)}</span>
+      <span class="preview-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+      <span class="preview-new">${escHtml(names[i] || '…')}</span>
+      ${dupes.has(i) ? '<span class="preview-warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>' : ''}`;
+    table.appendChild(row);
+  });
+
+  btn.disabled = !hasNames;
+  btn._names = names;
+}
+
+// ══════════════════════════════════════════
+//  DOWNLOAD
+// ══════════════════════════════════════════
+async function doDownload() {
+  const btn = document.getElementById('btn-download');
+  const names = btn._names;
+  if (!names || !files.length) return;
+
+  btn.disabled = true;
+  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin .8s linear infinite"><path d="M21 12a9 9 0 1 1-9-9"/></svg> Ruošiama…`;
+
+  try {
+    const zip = new JSZip();
+    for (let i = 0; i < files.length; i++) {
+      zip.file(names[i] || files[i].name, files[i]);
+    }
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'pervadinti_failai.zip';
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Atsisiųsti ZIP`;
+  }
+}
+
+// ══════════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════════
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// spin animation
+const style = document.createElement('style');
+style.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+document.head.appendChild(style);
+
+// ══════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════
+renderSeparators();
+renderTokensPool();
+renderTemplateZone();
+</script>
+</body>
 </html>
