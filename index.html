@@ -301,6 +301,61 @@ select.date-fmt option { background: var(--card); }
 }
 .wrap { position: relative; z-index: 1; }
 
+/* ── AD OVERLAY ── */
+#ad-overlay {
+  position: fixed; inset: 0; z-index: 999;
+  background: hsl(220 20% 4% / 0.92);
+  backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  animation: fadeIn .3s ease;
+}
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+.ad-box {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 20px; padding: 28px; max-width: 380px; width: 90%;
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  box-shadow: 0 0 60px hsl(175 80% 50% / 0.08);
+  animation: popUp .35s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes popUp { from{opacity:0;transform:scale(.85)} to{opacity:1;transform:scale(1)} }
+.ad-label {
+  font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--muted); margin-bottom: 14px;
+  padding: 3px 10px; border-radius: 100px;
+  background: var(--secondary); border: 1px solid var(--border);
+}
+.ad-img-wrap {
+  width: 260px; height: 200px; border-radius: 14px; overflow: hidden;
+  margin-bottom: 20px; border: 1px solid var(--border); position: relative;
+  background: var(--secondary);
+}
+.ad-img-wrap img { width: 100%; height: 100%; object-fit: cover; }
+.ad-cat-emoji {
+  font-size: 5rem; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 100%;
+}
+.ad-title { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
+.ad-sub { font-size: 0.8rem; color: var(--muted); margin-bottom: 22px; line-height: 1.5; }
+.ad-progress-wrap {
+  width: 100%; height: 6px; background: var(--secondary);
+  border-radius: 100px; overflow: hidden; margin-bottom: 14px;
+}
+.ad-progress-bar {
+  height: 100%; background: var(--primary); border-radius: 100px;
+  width: 0%; transition: none;
+  box-shadow: 0 0 10px hsl(175 80% 50% / 0.5);
+}
+#ad-skip-btn {
+  padding: 10px 24px; border-radius: 10px; border: none; cursor: pointer;
+  font-family: var(--font); font-size: 0.85rem; font-weight: 600;
+  background: var(--primary); color: var(--primary-fg);
+  transition: box-shadow .2s, opacity .2s;
+  min-width: 180px;
+}
+#ad-skip-btn:disabled { opacity: .45; cursor: not-allowed; background: var(--secondary); color: var(--muted); }
+#ad-skip-btn:not(:disabled):hover { box-shadow: var(--glow); }
+
 /* ── UTILS ── */
 .hidden { display: none !important; }
 </style>
@@ -486,6 +541,27 @@ select.date-fmt option { background: var(--card); }
 
 </div><!-- /page-info -->
 </div><!-- /wrap -->
+
+<!-- ════════════════════ AD OVERLAY ════════════════════ -->
+<div id="ad-overlay" style="display:none">
+  <div class="ad-box">
+    <div class="ad-label">🐱 Reklamos pertrauka</div>
+    <div class="ad-img-wrap">
+      <img 
+        src="https://cataas.com/cat/cute?width=260&height=200&t=1" 
+        alt="Katė"
+        onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"
+      />
+      <div class="ad-cat-emoji" style="display:none">🐱</div>
+    </div>
+    <div class="ad-title">Jūsų failai ruošiami!</div>
+    <div class="ad-sub">Palaukite sekundėlę kol suglaudiname jūsų failus…<br>O kol laukiate — štai katė 🐾</div>
+    <div class="ad-progress-wrap">
+      <div class="ad-progress-bar" id="ad-bar"></div>
+    </div>
+    <button id="ad-skip-btn" disabled>Palaukite 20s...</button>
+  </div>
+</div>
 
 <script>
 // ══════════════════════════════════════════
@@ -851,14 +927,57 @@ function renderPreview() {
 // ══════════════════════════════════════════
 //  DOWNLOAD
 // ══════════════════════════════════════════
-async function doDownload() {
+function doDownload() {
   const btn = document.getElementById('btn-download');
   const names = btn._names;
   if (!names || !files.length) return;
+  showAd(() => actualDownload(names));
+}
 
+function showAd(onDone) {
+  const overlay = document.getElementById('ad-overlay');
+  const bar     = document.getElementById('ad-bar');
+  const skipBtn = document.getElementById('ad-skip-btn');
+  const TOTAL   = 20000; // 20s
+  const TICK    = 50;
+
+  overlay.style.display = 'flex';
+  bar.style.width = '0%';
+  skipBtn.disabled = true;
+  skipBtn.textContent = 'Palaukite 20s...';
+
+  // Refresh cat image each time
+  const img = overlay.querySelector('img');
+  if (img) img.src = `https://cataas.com/cat/cute?width=260&height=200&t=${Date.now()}`;
+
+  let elapsed = 0;
+  const interval = setInterval(() => {
+    elapsed += TICK;
+    const pct = Math.min((elapsed / TOTAL) * 100, 100);
+    bar.style.width = pct + '%';
+
+    const remaining = Math.ceil((TOTAL - elapsed) / 1000);
+    if (remaining > 0) {
+      skipBtn.textContent = `Palaukite ${remaining}s...`;
+    } else {
+      skipBtn.textContent = '✓ Atsisiųsti dabar';
+      skipBtn.disabled = false;
+      clearInterval(interval);
+    }
+  }, TICK);
+
+  skipBtn.onclick = () => {
+    if (skipBtn.disabled) return;
+    clearInterval(interval);
+    overlay.style.display = 'none';
+    onDone();
+  };
+}
+
+async function actualDownload(names) {
+  const btn = document.getElementById('btn-download');
   btn.disabled = true;
   btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin .8s linear infinite"><path d="M21 12a9 9 0 1 1-9-9"/></svg> Ruošiama…`;
-
   try {
     const zip = new JSZip();
     for (let i = 0; i < files.length; i++) {
